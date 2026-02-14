@@ -5,6 +5,7 @@ import { EmbeddingScatter } from './embeddingScatter.js';
 import { ResidualStreamChart } from './residualStream.js';
 import { HeadOutputChart } from './headOutput.js';
 import { MlpActivationChart } from './mlpActivation.js';
+import { GradientFlowChart } from './gradientFlow.js';
 
 export class VizManager {
     constructor() {
@@ -15,11 +16,12 @@ export class VizManager {
         this.residualStream = new ResidualStreamChart('#chart-residual');
         this.headOutput = new HeadOutputChart('#chart-head-output');
         this.mlpActivation = new MlpActivationChart('#chart-mlp-activation');
+        this.gradientFlow = new GradientFlowChart('#chart-gradient-flow');
     }
 
     createCallback() {
         return (data) => {
-            const { step, loss, attnWeights, probs, tokens, embeddings, uchars, vocabSize, BOS, residualStages, headOutputs, mlpActivations } = data;
+            const { step, loss, attnWeights, probs, tokens, embeddings, uchars, vocabSize, BOS, residualStages, headOutputs, mlpActivations, gradNorms } = data;
 
             // 損失データ蓄積: 毎ステップ
             this.lossCurve.addDataPoint(step, loss);
@@ -32,6 +34,7 @@ export class VizManager {
                 this.residualStream.render(residualStages);
                 this.headOutput.render(headOutputs);
                 this.mlpActivation.render(mlpActivations);
+                this.gradientFlow.render(gradNorms);
             }
 
             // 埋め込み: 50ステップごと

@@ -4,7 +4,7 @@ export class HeadOutputChart {
     constructor(container) {
         const div = d3.select(container);
         this.svg = div.append('svg')
-            .attr('viewBox', '0 0 400 250')
+            .attr('viewBox', '0 0 400 180')
             .attr('preserveAspectRatio', 'xMidYMid meet')
             .style('width', '100%');
 
@@ -44,7 +44,7 @@ export class HeadOutputChart {
         this.colorScale.domain([maxAbs, -maxAbs]);
 
         const availWidth = 390;
-        const availHeight = 210;
+        const availHeight = 140;
         const layerGap = 12;
         const cellMax = 28;
 

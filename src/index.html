@@ -77,6 +77,9 @@
             padding: 8px;
             min-height: 200px;
         }
+        .chart-panel-sm {
+            min-height: 140px;
+        }
         /* D3 SVGダークテーマ */
         .chart-panel .tick line,
         .chart-panel .domain {
@@ -141,9 +144,12 @@
 
     <label for="numSteps">学習ステップ数: </label>
     <input type="number" id="numSteps" value="1000" min="10" max="5000" step="10" style="width: 80px; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; border-radius: 4px; padding: 4px 8px; font-size: 14px;">
+    <label for="numLayers" style="margin-left: 16px;">レイヤー数: </label>
+    <input type="number" id="numLayers" value="2" min="1" max="3" style="width: 50px; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; border-radius: 4px; padding: 4px 8px; font-size: 14px;">
     <button id="runBtn">学習を開始</button>
 
     <div id="viz-container">
+        <!-- 1行目: Loss / Embedding -->
         <div class="chart-panel">
             <div id="chart-loss"></div>
             <p class="chart-desc">学習の進行に伴い損失（予測の誤り）がどう減少するかを示します。右下がりになれば学習が進んでいる証拠です。</p>
@@ -155,6 +161,37 @@
                     学習ではこの損失を減らすようにパラメータを少しずつ調整していきます。
                     曲線が下がり続けていればモデルが名前のパターンを学んでいることを意味し、
                     横ばいになると学習が収束したことを示します。
+                </div>
+            </details>
+        </div>
+        <div class="chart-panel">
+            <div id="chart-embedding"></div>
+            <p class="chart-desc">各文字の埋め込みベクトルをPCAで2次元に圧縮して表示します。類似した文字が近くに集まる様子が観察できます。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    モデルは各文字を16次元のベクトル（数値の列）で表現します。これが「埋め込み」です。
+                    学習初期はランダムな配置ですが、学習が進むと似た役割の文字が近くに集まります。
+                    例えば母音同士や、名前の中で似た位置に現れる子音同士が近づきます。
+                    16次元のままでは可視化できないため、PCA（主成分分析）で2次元に圧縮して表示しています。
+                </div>
+            </details>
+        </div>
+        <!-- 2行目: Gradient Flow / Attention Heatmap -->
+        <div class="chart-panel">
+            <div id="chart-gradient-flow"></div>
+            <p class="chart-desc">バックプロパゲーション時の各パラメータグループの勾配L2ノルムを表示します。レイヤーが増えると入力側の勾配が小さくなる傾向（勾配消失）が観察できます。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    <p>学習ではフォワードパス（順伝播）で予測を行い、バックプロパゲーション（逆伝播）で各パラメータの勾配を計算します。
+                    勾配はパラメータを「どの方向にどれだけ動かせば損失が減るか」を示す信号です。</p>
+                    <p style="margin-top:6px"><strong>勾配消失問題:</strong>
+                    レイヤー数を増やすと、出力側（head）から入力側（wte, wpe）へ勾配が伝わる過程で信号が弱まることがあります。
+                    これが「勾配消失」で、入力側のパラメータが十分に更新されなくなります。
+                    レイヤー数を1→2→3と変えて棒の高さの変化を比較してみてください。</p>
+                    <p style="margin-top:6px"><strong>色分け:</strong>
+                    グレー=埋め込み層、青=Layer 0、緑=Layer 1、オレンジ=Layer 2、赤=出力ヘッド</p>
                 </div>
             </details>
         </div>
@@ -177,32 +214,35 @@
                 </div>
             </details>
         </div>
-        <div class="chart-panel">
-            <div id="chart-probs"></div>
-            <p class="chart-desc">次のトークンとしてモデルが予測する確率の上位10件を表示します。学習が進むと正解トークンの確率が高くなります。</p>
+        <!-- 3行目: Head Output / MLP Activation -->
+        <div class="chart-panel chart-panel-sm">
+            <div id="chart-head-output"></div>
+            <p class="chart-desc">各Attentionヘッドが加重平均で取り出した情報（HEAD_DIM=4次元ベクトル）をレイヤーごとに色の濃淡で表示します。</p>
             <details class="chart-detail">
                 <summary>詳しく見る</summary>
                 <div class="detail-body">
-                    モデルは各ステップで全文字に対して「次に来る確率」を計算します。
-                    学習初期は確率がほぼ均等（ランダムな予測）ですが、
-                    学習が進むと正解の文字に高い確率が集中するようになります。
-                    推論時はこの確率分布からサンプリングして次の文字を選びます。
+                    Attentionは「どこに注目するか」（Q·K）だけでなく、「注目先から何を取り出すか」（V）も重要です。
+                    このヒートマップはWo射影前の生のヘッド出力を表示し、各ヘッド（H0〜H3）がそれぞれの次元（d0〜d3）で
+                    どのような値を抽出しているかを可視化します。
+                    青は負の値、赤は正の値を示し、ヘッドごとに異なる情報を取り出していることが観察できます。
                 </div>
             </details>
         </div>
-        <div class="chart-panel">
-            <div id="chart-embedding"></div>
-            <p class="chart-desc">各文字の埋め込みベクトルをPCAで2次元に圧縮して表示します。類似した文字が近くに集まる様子が観察できます。</p>
+        <div class="chart-panel chart-panel-sm">
+            <div id="chart-mlp-activation"></div>
+            <p class="chart-desc">各レイヤーのMLP中間層（ReLU後、64ニューロン）の活性化パターンを8×8グリッドで表示します。</p>
             <details class="chart-detail">
                 <summary>詳しく見る</summary>
                 <div class="detail-body">
-                    モデルは各文字を16次元のベクトル（数値の列）で表現します。これが「埋め込み」です。
-                    学習初期はランダムな配置ですが、学習が進むと似た役割の文字が近くに集まります。
-                    例えば母音同士や、名前の中で似た位置に現れる子音同士が近づきます。
-                    16次元のままでは可視化できないため、PCA（主成分分析）で2次元に圧縮して表示しています。
+                    MLPはAttentionで集めた情報を非線形変換で処理します。
+                    fc1で16次元→64次元に拡大した後、ReLU活性化関数を適用します。
+                    ReLUは負の値を0にするため、「死んだニューロン」（黒いセル）が生まれます。
+                    明るいセルほど高い活性化値を持ち、そのニューロンが入力パターンに強く反応していることを意味します。
+                    下部のActive率はReLU後に非ゼロのニューロンの割合で、MLPの特徴検出がどの程度疎（sparse）かを示します。
                 </div>
             </details>
         </div>
+        <!-- 4行目: Residual Stream / Token Probs -->
         <div class="chart-panel">
             <div id="chart-residual"></div>
             <p class="chart-desc">各ステージ（埋め込み→Attention→MLP）での隠れ状態の変化を表示します。緑の線がベクトルの大きさ、青い棒が前ステージとの類似度です。</p>
@@ -216,32 +256,16 @@
                 </div>
             </details>
         </div>
-    </div>
-
         <div class="chart-panel">
-            <div id="chart-head-output"></div>
-            <p class="chart-desc">各Attentionヘッドが加重平均で取り出した情報（HEAD_DIM=4次元ベクトル）をレイヤーごとに色の濃淡で表示します。</p>
+            <div id="chart-probs"></div>
+            <p class="chart-desc">次のトークンとしてモデルが予測する確率の上位10件を表示します。学習が進むと正解トークンの確率が高くなります。</p>
             <details class="chart-detail">
                 <summary>詳しく見る</summary>
                 <div class="detail-body">
-                    Attentionは「どこに注目するか」（Q·K）だけでなく、「注目先から何を取り出すか」（V）も重要です。
-                    このヒートマップはWo射影前の生のヘッド出力を表示し、各ヘッド（H0〜H3）がそれぞれの次元（d0〜d3）で
-                    どのような値を抽出しているかを可視化します。
-                    青は負の値、赤は正の値を示し、ヘッドごとに異なる情報を取り出していることが観察できます。
-                </div>
-            </details>
-        </div>
-        <div class="chart-panel">
-            <div id="chart-mlp-activation"></div>
-            <p class="chart-desc">各レイヤーのMLP中間層（ReLU後、64ニューロン）の活性化パターンを8×8グリッドで表示します。</p>
-            <details class="chart-detail">
-                <summary>詳しく見る</summary>
-                <div class="detail-body">
-                    MLPはAttentionで集めた情報を非線形変換で処理します。
-                    fc1で16次元→64次元に拡大した後、ReLU活性化関数を適用します。
-                    ReLUは負の値を0にするため、「死んだニューロン」（黒いセル）が生まれます。
-                    明るいセルほど高い活性化値を持ち、そのニューロンが入力パターンに強く反応していることを意味します。
-                    下部のActive率はReLU後に非ゼロのニューロンの割合で、MLPの特徴検出がどの程度疎（sparse）かを示します。
+                    モデルは各ステップで全文字に対して「次に来る確率」を計算します。
+                    学習初期は確率がほぼ均等（ランダムな予測）ですが、
+                    学習が進むと正解の文字に高い確率が集中するようになります。
+                    推論時はこの確率分布からサンプリングして次の文字を選びます。
                 </div>
             </details>
         </div>
@@ -275,7 +299,8 @@
             try {
                 const viz = new VizManager();
                 const numSteps = parseInt(document.getElementById('numSteps').value, 10) || 1000;
-                await trainAndGenerate(viz.createCallback(), numSteps);
+                const numLayers = parseInt(document.getElementById('numLayers').value, 10) || 2;
+                await trainAndGenerate(viz.createCallback(), numSteps, numLayers);
                 btn.textContent = '完了！';
             } catch (error) {
                 console.log('エラーが発生しました:', error);

@@ -172,7 +172,7 @@ class Value {
 // ブラウザで実行可能な小規模設定（パラメータ数 ≈ 10,000）
 const N_EMBD = 16;      // 埋め込み次元数（各トークンをN_EMBD次元のベクトルで表現）
 const N_HEAD = 4;       // Attentionヘッド数（異なる視点で文脈を捉える）
-const N_LAYER = 2;      // Transformerレイヤー数
+let N_LAYER = 2;        // Transformerレイヤー数（UIから変更可能）
 const BLOCK_SIZE = 16;  // 最大系列長（一度に処理できるトークン数の上限）
 const HEAD_DIM = N_EMBD / N_HEAD; // 各ヘッドの次元数（= 4）
 
@@ -322,7 +322,8 @@ function gpt(tokenId, posId, keys, values, stateDict) {
 // ========================================
 // @param {Function} onStep - 各ステップ後に呼ばれるコールバック（可視化用）
 // @param {number} numSteps - 学習ステップ数（デフォルト: 1000）
-async function trainAndGenerate(onStep, numSteps = 1000) {
+async function trainAndGenerate(onStep, numSteps = 1000, numLayers = 2) {
+    N_LAYER = numLayers;
     // --- データセット読み込みとトークナイザ構築 ---
     console.log('Loading dataset...');
     let docs = await loadDataset();
@@ -421,6 +422,18 @@ async function trainAndGenerate(onStep, numSteps = 1000) {
         // 逆伝播: 損失から全パラメータの勾配を計算
         loss.backward();
 
+        // 各パラメータグループの勾配L2ノルムを収集（Adam更新前）
+        const gradNorms = {};
+        for (const [name, mat] of Object.entries(stateDict)) {
+            let sumSq = 0;
+            for (const row of mat) {
+                for (const p of row) {
+                    sumSq += p.grad * p.grad;
+                }
+            }
+            gradNorms[name] = Math.sqrt(sumSq);
+        }
+
         // Adamによるパラメータ更新
         // 線形学習率減衰: 学習が進むにつれ更新幅を小さくし、収束を安定化
         const lrT = learningRate * (1 - step / numSteps);
@@ -455,7 +468,8 @@ async function trainAndGenerate(onStep, numSteps = 1000) {
                 BOS,
                 residualStages: lastResidualStages,
                 headOutputs: lastHeadOutputs,
-                mlpActivations: lastMlpActivations
+                mlpActivations: lastMlpActivations,
+                gradNorms
             });
         }
 

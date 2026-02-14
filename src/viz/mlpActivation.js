@@ -4,7 +4,7 @@ export class MlpActivationChart {
     constructor(container) {
         const div = d3.select(container);
         this.svg = div.append('svg')
-            .attr('viewBox', '0 0 400 250')
+            .attr('viewBox', '0 0 400 180')
             .attr('preserveAspectRatio', 'xMidYMid meet')
             .style('width', '100%');
 
@@ -43,7 +43,7 @@ export class MlpActivationChart {
         this.colorScale.domain([0, maxVal]);
 
         const availWidth = 390;
-        const availHeight = 200;
+        const availHeight = 140;
         const layerGap = 16;
         const labelOffsetY = 14; // レイヤーラベル分
         const statsHeight = 14;  // アクティブ率表示分
