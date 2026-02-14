@@ -3,6 +3,9 @@
 Andrej Karpathyの`microgpt.py`をJavaScriptに移植したバージョンです。
 外部ライブラリなしの純粋なJavaScriptで、GPTの学習と推論を実装しています。
 
+### Demo
+https://shimizu.github.io/MicroGPT_viz/
+
 ## 特徴
 
 - **最小限の依存**: GPTアルゴリズム本体は依存ライブラリなしの純粋なJavaScriptで実装（可視化にD3.jsを使用）
