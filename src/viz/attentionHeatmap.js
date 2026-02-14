@@ -3,7 +3,7 @@ import * as d3 from 'd3';
 export class AttentionHeatmap {
     constructor(container, nHead) {
         this.nHead = nHead;
-        this.margin = { top: 20, right: 10, bottom: 25, left: 10 };
+        this.margin = { top: 35, right: 10, bottom: 25, left: 10 };
 
         const div = d3.select(container);
         this.svg = div.append('svg')
@@ -25,7 +25,7 @@ export class AttentionHeatmap {
             .attr('text-anchor', 'middle')
             .attr('fill', '#d4d4d4')
             .attr('font-size', '12px')
-            .text('Attention Weights (per Head)');
+            .text('Attention重み（ヘッド別）');
     }
 
     render(attnWeights, tokens, uchars, BOS) {

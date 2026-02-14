@@ -83,14 +83,50 @@
             fill: #999;
             font-size: 10px;
         }
+        .chart-desc {
+            color: #888;
+            font-size: 11px;
+            line-height: 1.5;
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+        .chart-detail {
+            margin-top: 6px;
+            padding: 0 4px;
+        }
+        .chart-detail summary {
+            color: #569cd6;
+            font-size: 11px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .chart-detail summary:hover {
+            color: #7ecbf6;
+        }
+        .chart-detail .detail-body {
+            color: #999;
+            font-size: 11px;
+            line-height: 1.6;
+            margin-top: 6px;
+            padding: 6px 8px;
+            background: #1e1e1e;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
     <h1>🧠 MicroGPT - Pure JavaScript Implementation</h1>
 
     <div class="info">
-        <strong>概要:</strong> Andrej Karpathyの<code>microgpt.py</code>をJavaScriptに移植したバージョンです。
-        名前データセット（約32,000件）から学習し、新しい名前を生成します。
+        <strong>概要:</strong> Andrej Karpathyの<a href="https://gist.github.com/karpathy/8627fe009c40f57531cb18360106ce95"><code>Mamicrogpt.py</code></a>をJavaScriptに移植したバージョンです。
+        <a href="./data/names.txt">名前データセット</a>（約32,000件）から学習し、新しい名前を生成します。
+    </div>
+
+    <div class="info">
+        <strong>仕組み:</strong>
+        名前を1文字ずつ（=<strong>トークン</strong>）に分解し、「前の文字列から次の1文字を予測する」タスクを繰り返し学習します。
+        各名前の先頭と末尾には <strong>⟨B⟩（BOSトークン）</strong> という特殊な区切り記号が付き、名前の始まりと終わりを識別します。
+        学習後は、⟨B⟩から1文字ずつ予測を連鎖させることで、データにない新しい名前を生成できます。
     </div>
 
     <div class="warning">
@@ -101,10 +137,65 @@
     <button id="runBtn">学習を開始</button>
 
     <div id="viz-container">
-        <div id="chart-loss" class="chart-panel"></div>
-        <div id="chart-attention" class="chart-panel"></div>
-        <div id="chart-probs" class="chart-panel"></div>
-        <div id="chart-embedding" class="chart-panel"></div>
+        <div class="chart-panel">
+            <div id="chart-loss"></div>
+            <p class="chart-desc">学習の進行に伴い損失（予測の誤り）がどう減少するかを示します。右下がりになれば学習が進んでいる証拠です。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    モデルは「次の文字」を予測し、正解との差を「損失（loss）」として計算します。
+                    損失が大きいほど予測が的外れで、小さいほど正確です。
+                    学習ではこの損失を減らすようにパラメータを少しずつ調整していきます。
+                    曲線が下がり続けていればモデルが名前のパターンを学んでいることを意味し、
+                    横ばいになると学習が収束したことを示します。
+                </div>
+            </details>
+        </div>
+        <div class="chart-panel">
+            <div id="chart-attention"></div>
+            <p class="chart-desc">各Attentionヘッドが入力系列のどの位置に注目しているかを色の濃淡で表示します。明るいほど強い注目を意味します。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    <p>Attentionは「文章を読むときの目の動き」のようなものです。
+                    例えば「emma」の次の文字を考えるとき、直前の「a」を重視したり、
+                    先頭の「e」との組み合わせを気にしたり、「mm」の繰り返しに注目したりします。
+                    GPTも同じように「どの文字を参考にするか」を自動で学習します。</p>
+                    <p style="margin-top:6px"><strong>ヘッドが4つある理由:</strong>
+                    1つのヘッドでは1種類の注目パターンしか捉えられません。
+                    しかし実際の名前には、音の流れ・長さ・繰り返しなど複数のルールが同時に存在します。
+                    4つのヘッド（H0〜H3）がそれぞれ別の視点を担当し、
+                    最後に全員の判断を合わせることで、より複雑なパターンを学習できます。
+                    4人のチームが異なる専門性で同時に読んでいるイメージです。</p>
+                </div>
+            </details>
+        </div>
+        <div class="chart-panel">
+            <div id="chart-probs"></div>
+            <p class="chart-desc">次のトークンとしてモデルが予測する確率の上位10件を表示します。学習が進むと正解トークンの確率が高くなります。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    モデルは各ステップで全文字に対して「次に来る確率」を計算します。
+                    学習初期は確率がほぼ均等（ランダムな予測）ですが、
+                    学習が進むと正解の文字に高い確率が集中するようになります。
+                    推論時はこの確率分布からサンプリングして次の文字を選びます。
+                </div>
+            </details>
+        </div>
+        <div class="chart-panel">
+            <div id="chart-embedding"></div>
+            <p class="chart-desc">各文字の埋め込みベクトルをPCAで2次元に圧縮して表示します。類似した文字が近くに集まる様子が観察できます。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    モデルは各文字を16次元のベクトル（数値の列）で表現します。これが「埋め込み」です。
+                    学習初期はランダムな配置ですが、学習が進むと似た役割の文字が近くに集まります。
+                    例えば母音同士や、名前の中で似た位置に現れる子音同士が近づきます。
+                    16次元のままでは可視化できないため、PCA（主成分分析）で2次元に圧縮して表示しています。
+                </div>
+            </details>
+        </div>
     </div>
 
     <div id="output">準備完了。上のボタンをクリックして学習を開始してください...</div>

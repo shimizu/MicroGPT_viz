@@ -26,7 +26,7 @@ export class EmbeddingScatter {
             .attr('text-anchor', 'middle')
             .attr('fill', '#d4d4d4')
             .attr('font-size', '12px')
-            .text('Embedding Space (PCA 2D)');
+            .text('埋め込み空間（PCA 2D）');
     }
 
     render(embeddings, uchars, BOS) {

@@ -35,7 +35,7 @@ export class LossCurve {
             .attr('text-anchor', 'middle')
             .attr('fill', '#d4d4d4')
             .attr('font-size', '12px')
-            .text('Loss Curve');
+            .text('損失曲線');
     }
 
     addDataPoint(step, loss) {

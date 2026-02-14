@@ -29,7 +29,7 @@ export class TokenProbs {
             .attr('text-anchor', 'middle')
             .attr('fill', '#d4d4d4')
             .attr('font-size', '12px')
-            .text('Token Prediction Probabilities (Top 10)');
+            .text('トークン予測確率（上位10件）');
     }
 
     render(probs, uchars, BOS) {
