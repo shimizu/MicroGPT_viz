@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroGPT in JavaScript</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        h1 {
+            color: #4ec9b0;
+            border-bottom: 2px solid #4ec9b0;
+            padding-bottom: 10px;
+        }
+        #output {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 15px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .info {
+            background: #264f78;
+            border-left: 4px solid #4ec9b0;
+            padding: 10px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #5a3e1c;
+            border-left: 4px solid #dcdcaa;
+            padding: 10px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        #viz-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .chart-panel {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 8px;
+            min-height: 200px;
+        }
+        /* D3 SVGダークテーマ */
+        .chart-panel .tick line,
+        .chart-panel .domain {
+            stroke: #555;
+        }
+        .chart-panel .tick text {
+            fill: #999;
+            font-size: 10px;
+        }
+        .chart-desc {
+            color: #888;
+            font-size: 11px;
+            line-height: 1.5;
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+        .chart-detail {
+            margin-top: 6px;
+            padding: 0 4px;
+        }
+        .chart-detail summary {
+            color: #569cd6;
+            font-size: 11px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .chart-detail summary:hover {
+            color: #7ecbf6;
+        }
+        .chart-detail .detail-body {
+            color: #999;
+            font-size: 11px;
+            line-height: 1.6;
+            margin-top: 6px;
+            padding: 6px 8px;
+            background: #1e1e1e;
+            border-radius: 3px;
+        }
+    </style>
+  <script type="module" crossorigin src="./assets/index-DK7WE-9b.js"></script>
+  <script type="module">import.meta.url;import("_").catch(()=>1);(async function*(){})().next();window.__vite_is_modern_browser=true</script>
+  <script type="module">!function(){if(window.__vite_is_modern_browser)return;console.warn("vite: loading legacy chunks, syntax error above and the same error below should be ignored");var e=document.getElementById("vite-legacy-polyfill"),n=document.createElement("script");n.src=e.src,n.onload=function(){System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))},document.body.appendChild(n)}();</script>
+</head>
+<body>
+    <h1>🧠 MicroGPT - Pure JavaScript Implementation
+        <a href="https://github.com/shimizu/MicroGPT_viz" target="_blank" rel="noopener noreferrer" style="font-size: 0.5em; vertical-align: middle; margin-left: 12px; color: #9cdcfe; text-decoration: none; border: 1px solid #9cdcfe; padding: 4px 10px; border-radius: 4px;">GitHub ↗</a>
+    </h1>
+
+    <div class="info">
+        <strong>概要:</strong> Andrej Karpathyの<a href="https://gist.github.com/karpathy/8627fe009c40f57531cb18360106ce95"><code>Mamicrogpt.py</code></a>をJavaScriptに移植したバージョンです。
+        <a href="./data/names.txt">名前データセット</a>（約32,000件）から学習し、新しい名前を生成します。
+    </div>
+
+    <div class="info">
+        <strong>仕組み:</strong>
+        名前を1文字ずつ（=<strong>トークン</strong>）に分解し、「前の文字列から次の1文字を予測する」タスクを繰り返し学習します。
+        各名前の先頭と末尾には <strong>⟨B⟩（BOSトークン）</strong> という特殊な区切り記号が付き、名前の始まりと終わりを識別します。
+        学習後は、⟨B⟩から1文字ずつ予測を連鎖させることで、データにない新しい名前を生成できます。
+    </div>
+
+    <div class="warning">
+        <strong>注意:</strong> ブラウザで実行するため、学習には数分かかります。
+        パラメータ数: ~10,000
+    </div>
+
+    <label for="numSteps">学習ステップ数: </label>
+    <input type="number" id="numSteps" value="1000" min="10" max="5000" step="10" style="width: 80px; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; border-radius: 4px; padding: 4px 8px; font-size: 14px;">
+    <button id="runBtn">学習を開始</button>
+
+    <div id="viz-container">
+        <div class="chart-panel">
+            <div id="chart-loss"></div>
+            <p class="chart-desc">学習の進行に伴い損失（予測の誤り）がどう減少するかを示します。右下がりになれば学習が進んでいる証拠です。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    モデルは「次の文字」を予測し、正解との差を「損失（loss）」として計算します。
+                    損失が大きいほど予測が的外れで、小さいほど正確です。
+                    学習ではこの損失を減らすようにパラメータを少しずつ調整していきます。
+                    曲線が下がり続けていればモデルが名前のパターンを学んでいることを意味し、
+                    横ばいになると学習が収束したことを示します。
+                </div>
+            </details>
+        </div>
+        <div class="chart-panel">
+            <div id="chart-attention"></div>
+            <p class="chart-desc">各Attentionヘッドが入力系列のどの位置に注目しているかを色の濃淡で表示します。明るいほど強い注目を意味します。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    <p>Attentionは「文章を読むときの目の動き」のようなものです。
+                    例えば「emma」の次の文字を考えるとき、直前の「a」を重視したり、
+                    先頭の「e」との組み合わせを気にしたり、「mm」の繰り返しに注目したりします。
+                    GPTも同じように「どの文字を参考にするか」を自動で学習します。</p>
+                    <p style="margin-top:6px"><strong>ヘッドが4つある理由:</strong>
+                    1つのヘッドでは1種類の注目パターンしか捉えられません。
+                    しかし実際の名前には、音の流れ・長さ・繰り返しなど複数のルールが同時に存在します。
+                    4つのヘッド（H0〜H3）がそれぞれ別の視点を担当し、
+                    最後に全員の判断を合わせることで、より複雑なパターンを学習できます。
+                    4人のチームが異なる専門性で同時に読んでいるイメージです。</p>
+                </div>
+            </details>
+        </div>
+        <div class="chart-panel">
+            <div id="chart-probs"></div>
+            <p class="chart-desc">次のトークンとしてモデルが予測する確率の上位10件を表示します。学習が進むと正解トークンの確率が高くなります。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    モデルは各ステップで全文字に対して「次に来る確率」を計算します。
+                    学習初期は確率がほぼ均等（ランダムな予測）ですが、
+                    学習が進むと正解の文字に高い確率が集中するようになります。
+                    推論時はこの確率分布からサンプリングして次の文字を選びます。
+                </div>
+            </details>
+        </div>
+        <div class="chart-panel">
+            <div id="chart-embedding"></div>
+            <p class="chart-desc">各文字の埋め込みベクトルをPCAで2次元に圧縮して表示します。類似した文字が近くに集まる様子が観察できます。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    モデルは各文字を16次元のベクトル（数値の列）で表現します。これが「埋め込み」です。
+                    学習初期はランダムな配置ですが、学習が進むと似た役割の文字が近くに集まります。
+                    例えば母音同士や、名前の中で似た位置に現れる子音同士が近づきます。
+                    16次元のままでは可視化できないため、PCA（主成分分析）で2次元に圧縮して表示しています。
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <div id="output">準備完了。上のボタンをクリックして学習を開始してください...</div>
+
+  <script nomodule>!function(){var e=document,t=e.createElement("script");if(!("noModule"in t)&&"onbeforeload"in t){var n=!1;e.addEventListener("beforeload",(function(e){if(e.target===t)n=!0;else if(!e.target.hasAttribute("nomodule")||!n)return;e.preventDefault()}),!0),t.type="module",t.src=".",e.head.appendChild(t),t.remove()}}();</script>
+  <script nomodule crossorigin id="vite-legacy-polyfill" src="./assets/polyfills-legacy-wCXkKB9b.js"></script>
+  <script nomodule crossorigin id="vite-legacy-entry" data-src="./assets/index-legacy-CMSWYyOz.js">System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))</script>
+</body>
+</html>
