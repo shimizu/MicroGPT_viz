@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: 'Courier New', monospace;
-            max-width: 900px;
+            max-width: 1200px;
             margin: 50px auto;
             padding: 20px;
             background: #1e1e1e;
@@ -23,8 +23,8 @@
             border: 1px solid #3e3e42;
             border-radius: 4px;
             padding: 15px;
-            min-height: 400px;
-            max-height: 600px;
+            min-height: 300px;
+            max-height: 500px;
             overflow-y: auto;
             white-space: pre-wrap;
             font-size: 13px;
@@ -61,55 +61,87 @@
             margin: 20px 0;
             border-radius: 4px;
         }
+        #viz-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .chart-panel {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 8px;
+            min-height: 200px;
+        }
+        /* D3 SVGダークテーマ */
+        .chart-panel .tick line,
+        .chart-panel .domain {
+            stroke: #555;
+        }
+        .chart-panel .tick text {
+            fill: #999;
+            font-size: 10px;
+        }
     </style>
 </head>
 <body>
     <h1>🧠 MicroGPT - Pure JavaScript Implementation</h1>
-    
+
     <div class="info">
         <strong>概要:</strong> Andrej Karpathyの<code>microgpt.py</code>をJavaScriptに移植したバージョンです。
         名前データセット（約32,000件）から学習し、新しい名前を生成します。
     </div>
-    
+
     <div class="warning">
         <strong>注意:</strong> ブラウザで実行するため、学習には数分かかります。
         パラメータ数: ~10,000、学習ステップ: 1,000回
     </div>
-    
-    <button id="runBtn" onclick="runTraining()">学習を開始</button>
-    
+
+    <button id="runBtn">学習を開始</button>
+
+    <div id="viz-container">
+        <div id="chart-loss" class="chart-panel"></div>
+        <div id="chart-attention" class="chart-panel"></div>
+        <div id="chart-probs" class="chart-panel"></div>
+        <div id="chart-embedding" class="chart-panel"></div>
+    </div>
+
     <div id="output">準備完了。上のボタンをクリックして学習を開始してください...</div>
 
-    <script>
+    <script type="module">
+        import { main } from './index.js';
+        import { VizManager } from './viz/vizManager.js';
+
         // Console output を画面に表示
         const outputDiv = document.getElementById('output');
         const originalLog = console.log;
-        
+
         console.log = function(...args) {
             originalLog.apply(console, args);
-            const text = args.map(arg => 
+            const text = args.map(arg =>
                 typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
             ).join(' ');
             outputDiv.textContent += text + '\n';
             outputDiv.scrollTop = outputDiv.scrollHeight;
         };
 
-        async function runTraining() {
-            const btn = document.getElementById('runBtn');
+        const btn = document.getElementById('runBtn');
+        btn.addEventListener('click', async () => {
             btn.disabled = true;
             btn.textContent = '学習中...';
             outputDiv.textContent = '';
-            
+
             try {
-                await window.runMicroGPT();
+                const viz = new VizManager();
+                await main(viz.createCallback());
                 btn.textContent = '完了！';
             } catch (error) {
                 console.log('エラーが発生しました:', error);
                 btn.disabled = false;
                 btn.textContent = '再試行';
             }
-        }
+        });
     </script>
-    <script src="index.js"></script>
 </body>
 </html>

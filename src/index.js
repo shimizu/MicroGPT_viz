@@ -207,7 +207,9 @@ function gpt(tokenId, posId, keys, values, stateDict) {
     const posEmb = stateDict.wpe[posId];
     let x = tokEmb.map((t, i) => t.add(posEmb[i]));
     x = rmsnorm(x);
-    
+
+    const attnWeightsAll = [];
+
     for (let li = 0; li < N_LAYER; li++) {
         // Multi-head attention
         const xResidual = x;
@@ -217,31 +219,34 @@ function gpt(tokenId, posId, keys, values, stateDict) {
         const v = linear(x, stateDict[`layer${li}.attn_wv`]);
         keys[li].push(k);
         values[li].push(v);
-        
+
         const xAttn = [];
+        const layerAttnWeights = [];
         for (let h = 0; h < N_HEAD; h++) {
             const hs = h * HEAD_DIM;
             const qH = q.slice(hs, hs + HEAD_DIM);
             const kH = keys[li].map(ki => ki.slice(hs, hs + HEAD_DIM));
             const vH = values[li].map(vi => vi.slice(hs, hs + HEAD_DIM));
-            
+
             const attnLogits = kH.map(kHt => {
                 return qH.reduce((sum, qHj, j) => sum.add(qHj.mul(kHt[j])), new Value(0))
                     .div(Math.sqrt(HEAD_DIM));
             });
-            
+
             const attnWeights = softmax(attnLogits);
-            
+            layerAttnWeights.push(attnWeights.map(w => w.data));
+
             for (let j = 0; j < HEAD_DIM; j++) {
-                const headOut = vH.reduce((sum, vHt, t) => 
+                const headOut = vH.reduce((sum, vHt, t) =>
                     sum.add(attnWeights[t].mul(vHt[j])), new Value(0));
                 xAttn.push(headOut);
             }
         }
-        
+        attnWeightsAll.push(layerAttnWeights);
+
         x = linear(xAttn, stateDict[`layer${li}.attn_wo`]);
         x = x.map((a, i) => a.add(xResidual[i]));
-        
+
         // MLP
         const xResidual2 = x;
         x = rmsnorm(x);
@@ -250,24 +255,24 @@ function gpt(tokenId, posId, keys, values, stateDict) {
         x = linear(x, stateDict[`layer${li}.mlp_fc2`]);
         x = x.map((a, i) => a.add(xResidual2[i]));
     }
-    
+
     const logits = linear(x, stateDict.lm_head);
-    return logits;
+    return { logits, attnWeightsAll };
 }
 
 // Main training and inference
-async function main() {
+async function main(onStep) {
     console.log('Loading dataset...');
     let docs = await loadDataset();
     docs = rng.shuffle(docs);
     console.log(`num docs: ${docs.length}`);
-    
+
     // Tokenizer
     const uchars = [...new Set(docs.join(''))].sort();
     const BOS = uchars.length;
     const vocabSize = uchars.length + 1;
     console.log(`vocab size: ${vocabSize}`);
-    
+
     // Initialize parameters
     console.log('Initializing parameters...');
     const stateDict = {
@@ -275,7 +280,7 @@ async function main() {
         wpe: matrix(BLOCK_SIZE, N_EMBD),
         lm_head: matrix(vocabSize, N_EMBD)
     };
-    
+
     for (let i = 0; i < N_LAYER; i++) {
         stateDict[`layer${i}.attn_wq`] = matrix(N_EMBD, N_EMBD);
         stateDict[`layer${i}.attn_wk`] = matrix(N_EMBD, N_EMBD);
@@ -284,7 +289,7 @@ async function main() {
         stateDict[`layer${i}.mlp_fc1`] = matrix(4 * N_EMBD, N_EMBD);
         stateDict[`layer${i}.mlp_fc2`] = matrix(N_EMBD, 4 * N_EMBD);
     }
-    
+
     const params = [];
     for (const mat of Object.values(stateDict)) {
         for (const row of mat) {
@@ -294,7 +299,7 @@ async function main() {
         }
     }
     console.log(`num params: ${params.length}`);
-    
+
     // Adam optimizer buffers
     const learningRate = 0.01;
     const beta1 = 0.85;
@@ -302,33 +307,37 @@ async function main() {
     const epsAdam = 1e-8;
     const m = new Array(params.length).fill(0);
     const v = new Array(params.length).fill(0);
-    
+
     // Training
     const numSteps = 1000;
     console.log('\nTraining...');
-    
+
     for (let step = 0; step < numSteps; step++) {
         const doc = docs[step % docs.length];
         const tokens = [BOS, ...doc.split('').map(ch => uchars.indexOf(ch)), BOS];
         const n = Math.min(BLOCK_SIZE, tokens.length - 1);
-        
+
         const keys = Array(N_LAYER).fill(null).map(() => []);
         const values = Array(N_LAYER).fill(null).map(() => []);
         const losses = [];
-        
+        let lastAttnWeights = null;
+        let lastProbs = null;
+
         for (let posId = 0; posId < n; posId++) {
             const tokenId = tokens[posId];
             const targetId = tokens[posId + 1];
-            const logits = gpt(tokenId, posId, keys, values, stateDict);
+            const { logits, attnWeightsAll } = gpt(tokenId, posId, keys, values, stateDict);
             const probs = softmax(logits);
             const lossT = probs[targetId].log().neg();
             losses.push(lossT);
+            lastAttnWeights = attnWeightsAll;
+            lastProbs = probs.map(p => p.data);
         }
-        
+
         const loss = losses.reduce((sum, l) => sum.add(l), new Value(0)).div(n);
-        
+
         loss.backward();
-        
+
         // Adam update
         const lrT = learningRate * (1 - step / numSteps);
         for (let i = 0; i < params.length; i++) {
@@ -340,24 +349,43 @@ async function main() {
             p.data -= lrT * mHat / (Math.sqrt(vHat) + epsAdam);
             p.grad = 0;
         }
-        
+
         if ((step + 1) % 100 === 0 || step === 0) {
             console.log(`step ${step + 1} / ${numSteps} | loss ${loss.data.toFixed(4)}`);
         }
+
+        if (onStep) {
+            onStep({
+                step,
+                loss: loss.data,
+                attnWeights: lastAttnWeights,
+                probs: lastProbs,
+                tokens,
+                embeddings: stateDict.wte.map(row => row.map(v => v.data)),
+                uchars,
+                vocabSize,
+                BOS
+            });
+        }
+
+        // UIスレッドに描画機会を与える
+        if (typeof window !== 'undefined' && step % 10 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
     }
-    
+
     // Inference
     const temperature = 0.5;
     console.log('\n--- inference (new, hallucinated names) ---');
-    
+
     for (let sampleIdx = 0; sampleIdx < 20; sampleIdx++) {
         const keys = Array(N_LAYER).fill(null).map(() => []);
         const values = Array(N_LAYER).fill(null).map(() => []);
         let tokenId = BOS;
         const sample = [];
-        
+
         for (let posId = 0; posId < BLOCK_SIZE; posId++) {
-            const logits = gpt(tokenId, posId, keys, values, stateDict);
+            const { logits } = gpt(tokenId, posId, keys, values, stateDict);
             const probs = softmax(logits.map(l => l.div(temperature)));
             tokenId = rng.choices(
                 Array.from({length: vocabSize}, (_, i) => i),
@@ -366,17 +394,9 @@ async function main() {
             if (tokenId === BOS) break;
             sample.push(uchars[tokenId]);
         }
-        
+
         console.log(`sample ${(sampleIdx + 1).toString().padStart(2)}: ${sample.join('')}`);
     }
 }
 
-// Run
-if (typeof window === 'undefined') {
-    // Node.js
-    main().catch(console.error);
-} else {
-    // Browser
-    window.runMicroGPT = main;
-    console.log('In browser: call window.runMicroGPT() to start');
-}
+export { main, N_EMBD, N_HEAD, N_LAYER, BLOCK_SIZE };
