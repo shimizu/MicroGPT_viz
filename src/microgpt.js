@@ -310,7 +310,7 @@ function gpt(tokenId, posId, keys, values, stateDict) {
 // ========================================
 // @param {Function} onStep - 各ステップ後に呼ばれるコールバック（可視化用）
 // @param {number} numSteps - 学習ステップ数（デフォルト: 1000）
-async function main(onStep, numSteps = 1000) {
+async function trainAndGenerate(onStep, numSteps = 1000) {
     // --- データセット読み込みとトークナイザ構築 ---
     console.log('Loading dataset...');
     let docs = await loadDataset();
@@ -474,4 +474,4 @@ async function main(onStep, numSteps = 1000) {
     }
 }
 
-export { main, N_EMBD, N_HEAD, N_LAYER, BLOCK_SIZE };
+export { trainAndGenerate, N_EMBD, N_HEAD, N_LAYER, BLOCK_SIZE };

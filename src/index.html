@@ -205,7 +205,7 @@
     <div id="output">準備完了。上のボタンをクリックして学習を開始してください...</div>
 
     <script type="module">
-        import { main } from './index.js';
+        import { trainAndGenerate } from './microgpt.js';
         import { VizManager } from './viz/vizManager.js';
 
         // Console output を画面に表示
@@ -230,7 +230,7 @@
             try {
                 const viz = new VizManager();
                 const numSteps = parseInt(document.getElementById('numSteps').value, 10) || 1000;
-                await main(viz.createCallback(), numSteps);
+                await trainAndGenerate(viz.createCallback(), numSteps);
                 btn.textContent = '完了！';
             } catch (error) {
                 console.log('エラーが発生しました:', error);
