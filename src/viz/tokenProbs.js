@@ -24,24 +24,43 @@ export class TokenProbs {
         this.yAxisG = this.g.append('g');
 
         // タイトル
-        this.svg.append('text')
+        this.titleText = this.svg.append('text')
             .attr('x', 200).attr('y', 14)
             .attr('text-anchor', 'middle')
             .attr('fill', '#d4d4d4')
             .attr('font-size', '12px')
-            .text('トークン予測確率（上位10件）');
+            .text('トークン予測確率（上位10件、⟨B⟩除く）');
+
+        // BOS確率バッジ
+        this.bosGroup = this.svg.append('g')
+            .attr('transform', `translate(${400 - this.margin.right}, 14)`);
+        this.bosGroup.append('rect')
+            .attr('x', -70).attr('y', -11)
+            .attr('width', 70).attr('height', 16)
+            .attr('rx', 3)
+            .attr('fill', '#3e3e3e');
+        this.bosText = this.bosGroup.append('text')
+            .attr('text-anchor', 'end')
+            .attr('fill', '#9cdcfe')
+            .attr('font-size', '10px')
+            .text('⟨B⟩: —');
     }
 
     render(probs, uchars, BOS) {
         if (!probs) return;
 
-        // 上位10件を取得
+        // BOS確率を取得してバッジに表示
+        const bosProb = probs[BOS] || 0;
+        this.bosText.text(`⟨B⟩: ${d3.format('.1%')(bosProb)}`);
+
+        // BOS以外の上位10件を取得
         const indexed = probs.map((p, i) => ({ prob: p, idx: i }));
-        indexed.sort((a, b) => b.prob - a.prob);
-        const top = indexed.slice(0, 10);
+        const filtered = indexed.filter(d => d.idx !== BOS);
+        filtered.sort((a, b) => b.prob - a.prob);
+        const top = filtered.slice(0, 10);
 
         const data = top.map(d => ({
-            label: d.idx === BOS ? '⟨B⟩' : (uchars[d.idx] || '?'),
+            label: uchars[d.idx] || '?',
             prob: d.prob
         }));
 
