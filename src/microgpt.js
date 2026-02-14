@@ -172,7 +172,7 @@ class Value {
 // ブラウザで実行可能な小規模設定（パラメータ数 ≈ 10,000）
 const N_EMBD = 16;      // 埋め込み次元数（各トークンをN_EMBD次元のベクトルで表現）
 const N_HEAD = 4;       // Attentionヘッド数（異なる視点で文脈を捉える）
-const N_LAYER = 1;      // Transformerレイヤー数
+const N_LAYER = 2;      // Transformerレイヤー数
 const BLOCK_SIZE = 16;  // 最大系列長（一度に処理できるトークン数の上限）
 const HEAD_DIM = N_EMBD / N_HEAD; // 各ヘッドの次元数（= 4）
 
@@ -240,6 +240,10 @@ function gpt(tokenId, posId, keys, values, stateDict) {
     x = rmsnorm(x);
 
     const attnWeightsAll = []; // 可視化用にAttention重みを保存
+    const headOutputsAll = []; // ヘッド出力可視化用
+    const mlpActivationsAll = []; // MLP活性化可視化用
+    const residualStages = []; // 残差ストリーム可視化用
+    residualStages.push({ label: 'embed', values: x.map(v => v.data) });
 
     for (let li = 0; li < N_LAYER; li++) {
         // --- Multi-Head Attention ---
@@ -257,6 +261,7 @@ function gpt(tokenId, posId, keys, values, stateDict) {
 
         const xAttn = [];
         const layerAttnWeights = [];
+        const layerHeadOutputs = [];
         for (let h = 0; h < N_HEAD; h++) {
             // 各ヘッドはN_EMBD次元をN_HEAD分割したHEAD_DIM次元で動作
             const hs = h * HEAD_DIM;
@@ -276,18 +281,23 @@ function gpt(tokenId, posId, keys, values, stateDict) {
             layerAttnWeights.push(attnWeights.map(w => w.data));
 
             // Value の重み付き和 → このヘッドの出力
+            const headDimOutputs = [];
             for (let j = 0; j < HEAD_DIM; j++) {
                 const headOut = vH.reduce((sum, vHt, t) =>
                     sum.add(attnWeights[t].mul(vHt[j])), new Value(0));
                 xAttn.push(headOut);
+                headDimOutputs.push(headOut.data);
             }
+            layerHeadOutputs.push(headDimOutputs);
         }
         attnWeightsAll.push(layerAttnWeights);
+        headOutputsAll.push(layerHeadOutputs);
 
         // 全ヘッドの出力を結合し、出力射影（Wo）で元の次元に変換
         x = linear(xAttn, stateDict[`layer${li}.attn_wo`]);
         // 残差接続: 元の入力を加算（勾配消失を防ぎ、学習を安定化）
         x = x.map((a, i) => a.add(xResidual[i]));
+        residualStages.push({ label: `L${li}_attn`, values: x.map(v => v.data) });
 
         // --- MLP（フィードフォワードネットワーク）---
         // Attentionで集めた情報を非線形変換で処理する
@@ -296,13 +306,15 @@ function gpt(tokenId, posId, keys, values, stateDict) {
         x = rmsnorm(x);
         x = linear(x, stateDict[`layer${li}.mlp_fc1`]);  // N_EMBD → 4*N_EMBD に拡大
         x = x.map(xi => xi.relu());                       // 非線形活性化
+        mlpActivationsAll.push(x.map(v => v.data));       // ReLU後の活性化を記録
         x = linear(x, stateDict[`layer${li}.mlp_fc2`]);  // 4*N_EMBD → N_EMBD に縮小
         x = x.map((a, i) => a.add(xResidual2[i]));       // 残差接続
+        residualStages.push({ label: `L${li}_mlp`, values: x.map(v => v.data) });
     }
 
     // 言語モデルヘッド: 隠れ状態を語彙サイズの logits に射影
     const logits = linear(x, stateDict.lm_head);
-    return { logits, attnWeightsAll };
+    return { logits, attnWeightsAll, headOutputsAll, mlpActivationsAll, residualStages };
 }
 
 // ========================================
@@ -383,18 +395,24 @@ async function trainAndGenerate(onStep, numSteps = 1000) {
         const losses = [];
         let lastAttnWeights = null;
         let lastProbs = null;
+        let lastResidualStages = null;
+        let lastHeadOutputs = null;
+        let lastMlpActivations = null;
 
         // 各位置で次のトークンを予測し、損失を計算
         for (let posId = 0; posId < n; posId++) {
             const tokenId = tokens[posId];       // 入力トークン
             const targetId = tokens[posId + 1];   // 正解の次トークン
-            const { logits, attnWeightsAll } = gpt(tokenId, posId, keys, values, stateDict);
+            const { logits, attnWeightsAll, headOutputsAll, mlpActivationsAll, residualStages } = gpt(tokenId, posId, keys, values, stateDict);
             const probs = softmax(logits);
             // 交差エントロピー損失: -log(正解トークンの予測確率)
             const lossT = probs[targetId].log().neg();
             losses.push(lossT);
             lastAttnWeights = attnWeightsAll;
             lastProbs = probs.map(p => p.data);
+            lastResidualStages = residualStages;
+            lastHeadOutputs = headOutputsAll;
+            lastMlpActivations = mlpActivationsAll;
         }
 
         // 名前全体の平均損失
@@ -434,7 +452,10 @@ async function trainAndGenerate(onStep, numSteps = 1000) {
                 embeddings: stateDict.wte.map(row => row.map(v => v.data)),
                 uchars,
                 vocabSize,
-                BOS
+                BOS,
+                residualStages: lastResidualStages,
+                headOutputs: lastHeadOutputs,
+                mlpActivations: lastMlpActivations
             });
         }
 

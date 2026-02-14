@@ -203,6 +203,48 @@
                 </div>
             </details>
         </div>
+        <div class="chart-panel">
+            <div id="chart-residual"></div>
+            <p class="chart-desc">各ステージ（埋め込み→Attention→MLP）での隠れ状態の変化を表示します。緑の線がベクトルの大きさ、青い棒が前ステージとの類似度です。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    Transformerは入力を「残差ストリーム」として各レイヤーに順に通します。
+                    各レイヤーのAttentionとMLPは残差接続により元のベクトルに情報を加算していきます。
+                    <strong>緑の折れ線（左軸）</strong>はベクトルのL2ノルム（大きさ）で、情報が蓄積されるにつれ増加する傾向があります。
+                    <strong>青い棒（右軸）</strong>は前ステージとのコサイン類似度で、1に近いほど変化が小さく、低いほどそのステージで大きな変換が行われたことを意味します。
+                </div>
+            </details>
+        </div>
+    </div>
+
+        <div class="chart-panel">
+            <div id="chart-head-output"></div>
+            <p class="chart-desc">各Attentionヘッドが加重平均で取り出した情報（HEAD_DIM=4次元ベクトル）をレイヤーごとに色の濃淡で表示します。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    Attentionは「どこに注目するか」（Q·K）だけでなく、「注目先から何を取り出すか」（V）も重要です。
+                    このヒートマップはWo射影前の生のヘッド出力を表示し、各ヘッド（H0〜H3）がそれぞれの次元（d0〜d3）で
+                    どのような値を抽出しているかを可視化します。
+                    青は負の値、赤は正の値を示し、ヘッドごとに異なる情報を取り出していることが観察できます。
+                </div>
+            </details>
+        </div>
+        <div class="chart-panel">
+            <div id="chart-mlp-activation"></div>
+            <p class="chart-desc">各レイヤーのMLP中間層（ReLU後、64ニューロン）の活性化パターンを8×8グリッドで表示します。</p>
+            <details class="chart-detail">
+                <summary>詳しく見る</summary>
+                <div class="detail-body">
+                    MLPはAttentionで集めた情報を非線形変換で処理します。
+                    fc1で16次元→64次元に拡大した後、ReLU活性化関数を適用します。
+                    ReLUは負の値を0にするため、「死んだニューロン」（黒いセル）が生まれます。
+                    明るいセルほど高い活性化値を持ち、そのニューロンが入力パターンに強く反応していることを意味します。
+                    下部のActive率はReLU後に非ゼロのニューロンの割合で、MLPの特徴検出がどの程度疎（sparse）かを示します。
+                </div>
+            </details>
+        </div>
     </div>
 
     <div id="output">準備完了。上のボタンをクリックして学習を開始してください...</div>

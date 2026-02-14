@@ -2,6 +2,9 @@ import { LossCurve } from './lossCurve.js';
 import { AttentionHeatmap } from './attentionHeatmap.js';
 import { TokenProbs } from './tokenProbs.js';
 import { EmbeddingScatter } from './embeddingScatter.js';
+import { ResidualStreamChart } from './residualStream.js';
+import { HeadOutputChart } from './headOutput.js';
+import { MlpActivationChart } from './mlpActivation.js';
 
 export class VizManager {
     constructor() {
@@ -9,11 +12,14 @@ export class VizManager {
         this.attentionHeatmap = new AttentionHeatmap('#chart-attention', 4);
         this.tokenProbs = new TokenProbs('#chart-probs');
         this.embeddingScatter = new EmbeddingScatter('#chart-embedding');
+        this.residualStream = new ResidualStreamChart('#chart-residual');
+        this.headOutput = new HeadOutputChart('#chart-head-output');
+        this.mlpActivation = new MlpActivationChart('#chart-mlp-activation');
     }
 
     createCallback() {
         return (data) => {
-            const { step, loss, attnWeights, probs, tokens, embeddings, uchars, vocabSize, BOS } = data;
+            const { step, loss, attnWeights, probs, tokens, embeddings, uchars, vocabSize, BOS, residualStages, headOutputs, mlpActivations } = data;
 
             // 損失データ蓄積: 毎ステップ
             this.lossCurve.addDataPoint(step, loss);
@@ -23,6 +29,9 @@ export class VizManager {
                 this.lossCurve.render();
                 this.attentionHeatmap.render(attnWeights, tokens, uchars, BOS);
                 this.tokenProbs.render(probs, uchars, BOS);
+                this.residualStream.render(residualStages);
+                this.headOutput.render(headOutputs);
+                this.mlpActivation.render(mlpActivations);
             }
 
             // 埋め込み: 50ステップごと

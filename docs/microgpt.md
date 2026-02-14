@@ -2,6 +2,12 @@
 
 このドキュメントは、JavaScriptは使いこなせるが、AI/機械学習の仕組みには詳しくない技術者向けです。対象コードは `src/microgpt.js` です。
 
+## 関連ドキュメント
+
+- GPT全体の前提知識: [`docs/gpt-primer.md`](./gpt-primer.md)
+- Transformerの仕組み: [`docs/transformer-primer.md`](./transformer-primer.md)
+- コードの行番号対応表: [`docs/microgpt-reading-map.md`](./microgpt-reading-map.md)
+
 ## 1. まず結論: このファイルは何をしているか
 
 `src/microgpt.js` は、依存ライブラリなしで次の3つを1ファイルに実装しています。
