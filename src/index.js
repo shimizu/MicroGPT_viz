@@ -261,7 +261,7 @@ function gpt(tokenId, posId, keys, values, stateDict) {
 }
 
 // Main training and inference
-async function main(onStep) {
+async function main(onStep, numSteps = 1000) {
     console.log('Loading dataset...');
     let docs = await loadDataset();
     docs = rng.shuffle(docs);
@@ -309,7 +309,6 @@ async function main(onStep) {
     const v = new Array(params.length).fill(0);
 
     // Training
-    const numSteps = 1000;
     console.log('\nTraining...');
 
     for (let step = 0; step < numSteps; step++) {
