@@ -57,37 +57,13 @@ class SeededRandom {
 const rng = new SeededRandom(42);
 
 // ========================================
-// データセット読み込み（ブラウザ / Node.js 両対応）
+// データセット読み込み
 // ========================================
 async function loadDataset() {
-    if (typeof window !== 'undefined') {
-        // ブラウザ環境: fetch APIで取得
-        const response = await fetch('./data/names.txt');
-        const text = await response.text();
-        return text.trim().split('\n').filter(l => l.trim());
-    } else {
-        // Node.js環境: ファイルシステムから読み込み
-        const fs = require('fs');
-        const https = require('https');
-
-        if (!fs.existsSync('input.txt')) {
-            console.log('Downloading input.txt...');
-            const file = fs.createWriteStream('input.txt');
-            await new Promise((resolve, reject) => {
-                https.get('./data/names.txt',
-                    response => {
-                        response.pipe(file);
-                        file.on('finish', () => {
-                            file.close();
-                            resolve();
-                        });
-                    }).on('error', reject);
-            });
-        }
-
-        const text = fs.readFileSync('input.txt', 'utf-8');
-        return text.trim().split('\n').filter(l => l.trim());
-    }
+    // ブラウザ環境: fetch APIで取得
+    const response = await fetch('./data/names.txt');
+    const text = await response.text();
+    return text.trim().split('\n').filter(l => l.trim());
 }
 
 // ========================================

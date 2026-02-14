@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-Andrej Karpathyの`microgpt.py`をJavaScriptに移植した、依存ライブラリなしのGPT実装。名前データセット（`public/data/names.txt`、約32,000件）から学習し、新しい名前を生成するデモ。ブラウザとNode.jsの両方で動作する。
+Andrej Karpathyの`microgpt.py`をJavaScriptに移植した、依存ライブラリなしのGPT実装。名前データセット（`public/data/names.txt`、約32,000件）から学習し、新しい名前を生成するブラウザ向けデモ。
 
 ## 開発コマンド
 
@@ -32,10 +32,9 @@ Andrej Karpathyの`microgpt.py`をJavaScriptに移植した、依存ライブラ
 ### ハイパーパラメータ（定数）
 `N_EMBD=16`, `N_HEAD=4`, `N_LAYER=1`, `BLOCK_SIZE=16` — 小規模なためブラウザで実行可能
 
-### ブラウザ/Node.js両対応
-- ブラウザ: `window.runMicroGPT`にmain関数を公開、`src/index.html`のボタンから実行
-- Node.js: 直接`main()`を実行
-- データ読み込み（`loadDataset()`）で環境判定して`fetch`/`fs`を切り替え
+### 実行環境
+- ブラウザ: `src/index.html` のボタンから `main()` を呼び出して実行
+- データ読み込み（`loadDataset()`）は `fetch('./data/names.txt')` を使用
 
 ## 言語・地域設定
 - コミットメッセージ、コメント、ドキュメントは日本語で記述
