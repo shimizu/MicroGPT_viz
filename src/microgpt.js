@@ -54,7 +54,7 @@ class SeededRandom {
     }
 }
 
-const rng = new SeededRandom(42);
+let rng = new SeededRandom(42);
 
 // ========================================
 // データセット読み込み
@@ -322,7 +322,8 @@ function gpt(tokenId, posId, keys, values, stateDict) {
 // ========================================
 // @param {Function} onStep - 各ステップ後に呼ばれるコールバック（可視化用）
 // @param {number} numSteps - 学習ステップ数（デフォルト: 1000）
-async function trainAndGenerate(onStep, numSteps = 1000, numLayers = 2) {
+async function trainAndGenerate(onStep, numSteps = 1000, numLayers = 2, seed = 42) {
+    rng = new SeededRandom(seed);
     N_LAYER = numLayers;
     // --- データセット読み込みとトークナイザ構築 ---
     console.log('Loading dataset...');
