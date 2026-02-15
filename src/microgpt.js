@@ -320,8 +320,11 @@ function gpt(tokenId, posId, keys, values, stateDict) {
 // ========================================
 // メイン関数: 学習ループと推論
 // ========================================
-// @param {Function} onStep - 各ステップ後に呼ばれるコールバック（可視化用）
-// @param {number} numSteps - 学習ステップ数（デフォルト: 1000）
+// @param {Function} onStep  - 各ステップ後に呼ばれるコールバック（可視化用）
+// @param {number} numSteps  - 学習ステップ数（デフォルト: 1000）
+// @param {number} numLayers - Transformerブロックの積み重ね数（デフォルト: 2）
+// @param {number} seed      - 乱数生成器の初期値（デフォルト: 42）
+
 async function trainAndGenerate(onStep, numSteps = 1000, numLayers = 2, seed = 42) {
     rng = new SeededRandom(seed);
     N_LAYER = numLayers;
