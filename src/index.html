@@ -147,6 +147,7 @@
     <label for="numLayers" style="margin-left: 16px;">Transformerレイヤー数: </label>
     <input type="number" id="numLayers" value="2" min="1" max="3" style="width: 50px; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; border-radius: 4px; padding: 4px 8px; font-size: 14px;">
     <button id="runBtn">学習を開始</button>
+    <button id="resetBtn" style="display: none; background: #6c6c6c;">リセット</button>
 
     <div id="viz-container">
         <!-- 1行目: Loss / Embedding -->
@@ -290,23 +291,38 @@
             outputDiv.scrollTop = outputDiv.scrollHeight;
         };
 
+        let viz = null;
         const btn = document.getElementById('runBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
         btn.addEventListener('click', async () => {
             btn.disabled = true;
             btn.textContent = '学習中...';
+            resetBtn.style.display = 'none';
             outputDiv.textContent = '';
+            if (viz) viz.destroy();
+            viz = new VizManager();
 
             try {
-                const viz = new VizManager();
                 const numSteps = parseInt(document.getElementById('numSteps').value, 10) || 1000;
                 const numLayers = parseInt(document.getElementById('numLayers').value, 10) || 2;
                 await trainAndGenerate(viz.createCallback(), numSteps, numLayers);
                 btn.textContent = '完了！';
+                resetBtn.style.display = '';
             } catch (error) {
                 console.log('エラーが発生しました:', error);
                 btn.disabled = false;
                 btn.textContent = '再試行';
+                resetBtn.style.display = '';
             }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            if (viz) { viz.destroy(); viz = null; }
+            outputDiv.textContent = '準備完了。上のボタンをクリックして学習を開始してください...';
+            btn.disabled = false;
+            btn.textContent = '学習を開始';
+            resetBtn.style.display = 'none';
         });
     </script>
 </body>

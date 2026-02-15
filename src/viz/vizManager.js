@@ -19,6 +19,18 @@ export class VizManager {
         this.gradientFlow = new GradientFlowChart('#chart-gradient-flow');
     }
 
+    destroy() {
+        const ids = [
+            '#chart-loss', '#chart-embedding', '#chart-gradient-flow',
+            '#chart-attention', '#chart-head-output', '#chart-mlp-activation',
+            '#chart-residual', '#chart-probs'
+        ];
+        for (const id of ids) {
+            const el = document.querySelector(id);
+            if (el) el.innerHTML = '';
+        }
+    }
+
     createCallback() {
         return (data) => {
             const { step, loss, attnWeights, probs, tokens, embeddings, uchars, vocabSize, BOS, residualStages, headOutputs, mlpActivations, gradNorms } = data;
