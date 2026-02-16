@@ -59,9 +59,9 @@ let rng = new SeededRandom(42);
 // ========================================
 // データセット読み込み
 // ========================================
-async function loadDataset() {
+async function loadDataset(datasetPath) {
     // ブラウザ環境: fetch APIで取得
-    const response = await fetch('./data/names.txt');
+    const response = await fetch(datasetPath);
     const text = await response.text();
     return text.trim().split('\n').filter(l => l.trim());
 }
@@ -325,12 +325,12 @@ function gpt(tokenId, posId, keys, values, stateDict) {
 // @param {number} numLayers - Transformerブロックの積み重ね数（デフォルト: 2）
 // @param {number} seed      - 乱数生成器の初期値（デフォルト: 42）
 
-async function trainAndGenerate(onStep, numSteps = 1000, numLayers = 2, seed = 42) {
+async function trainAndGenerate(onStep, numSteps = 1000, numLayers = 2, seed = 42, datasetPath = './data/city_names.txt') {
     rng = new SeededRandom(seed);
     N_LAYER = numLayers;
     // --- データセット読み込みとトークナイザ構築 ---
     console.log('Loading dataset...');
-    let docs = await loadDataset();
+    let docs = await loadDataset(datasetPath);
     docs = rng.shuffle(docs); // シャッフルして学習順序をランダム化
     console.log(`num docs: ${docs.length}`);
 
